@@ -1,6 +1,7 @@
 import { useOnline } from '../../hooks/useOnline'
 import type { GameKind } from '../../lib/protocol'
 import { FynTable } from './FynTable'
+import { JassTable } from './JassTable'
 import { Join } from './Join'
 import { Lobby } from './Lobby'
 import { Table } from './Table'
@@ -52,6 +53,21 @@ export function DigitalMode({
           onAddBot={net.addBot}
           onSetPause={net.setPause}
           onSetBalances={net.setBalances}
+          onJassConfig={net.jassConfig}
+          onTeams={net.teams}
+          onLeave={leave}
+        />
+      ) : game.kind === 'jass' ? (
+        <JassTable
+          game={game}
+          onTrumpf={net.trumpf}
+          onPredict={net.bid}
+          onPlay={net.play}
+          onNext={net.next}
+          onLobby={net.lobby}
+          onKick={net.kick}
+          onForce={net.force}
+          onSetPause={net.setPause}
           onLeave={leave}
         />
       ) : game.kind === 'fyn' ? (

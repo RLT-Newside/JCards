@@ -2,12 +2,15 @@ import { Bluetooth, Bot, Check, Copy, HelpCircle, LogOut, UserMinus, WifiOff } f
 import { useState } from 'react'
 import { FynRules } from '../../components/FynRules'
 import { HelpSheet } from '../../components/HelpSheet'
+import { JassRules } from '../../components/JassRules'
 import { PHASE_HELP } from '../../content/rules'
 import { Button, Card, SectionTitle, Segmented } from '../../components/ui'
 import { FYN_MAX_PLAYERS, type FynClientGame } from '../../lib/fyn'
 import type { ClientGame } from '../../lib/game'
+import { JASS_PLAYERS, type JassClientGame, type JassConfig } from '../../lib/jass'
 import { formatChf } from '../../lib/money'
 import type { BluetoothInfo, HostInfo } from '../../lib/transport'
+import { JassSeats, JassSettings, jassSummary } from './JassSetup'
 import { PausePicker } from './PausePicker'
 
 export function Lobby({
@@ -21,9 +24,11 @@ export function Lobby({
   onAddBot,
   onSetPause,
   onSetBalances,
+  onJassConfig,
+  onTeams,
   onLeave,
 }: {
-  game: ClientGame | FynClientGame
+  game: ClientGame | FynClientGame | JassClientGame
   code: string
   hostInfo: HostInfo | null
   bluetooth: BluetoothInfo | null
@@ -33,6 +38,8 @@ export function Lobby({
   onAddBot: () => void
   onSetPause: (ms: number) => void
   onSetBalances: (show: boolean) => void
+  onJassConfig: (patch: Partial<JassConfig>) => void
+  onTeams: () => void
   onLeave: () => void
 }) {
   const [copied, setCopied] = useState(false)
@@ -40,7 +47,10 @@ export function Lobby({
   const [pickedIp, setPickedIp] = useState<string | null>(null)
   const isHost = game.youId === game.hostId
   const fyn = game.kind === 'fyn'
-  const max = fyn ? FYN_MAX_PLAYERS : 8
+  const jass = game.kind === 'jass' ? game : null
+  const max = fyn ? FYN_MAX_PLAYERS : jass ? JASS_PLAYERS : 8
+  // Jass braucht genau vier: wer fehlt, wird beim Start durch Bots ersetzt.
+  const missing = jass ? JASS_PLAYERS - game.players.length : 0
 
   const nics = hostInfo?.interfaces ?? []
   const ip = pickedIp ?? hostInfo?.ip ?? ''
@@ -190,13 +200,18 @@ export function Lobby({
       <p className="text-center text-xs text-white/35 mt-3">
         {game.kind === 'fyn'
           ? 'Fuck Your Neighbour · 11 Runden · Punkte statt Geld'
-          : `Grundeinsatz ${formatChf(game.ante)} pro Spieler und Runde`}
+          : game.kind === 'jass'
+            ? `Jass · ${jassSummary(game.config)}`
+            : `Grundeinsatz ${formatChf(game.ante)} pro Spieler und Runde`}
       </p>
 
       <div className="mt-8">
         <SectionTitle right={<span className="text-xs text-white/30">{game.players.length}/{max}</span>}>
           Am Tisch
         </SectionTitle>
+        {jass ? (
+          <JassSeats game={jass} onKick={onKick} onTeams={onTeams} />
+        ) : (
         <div className="space-y-2">
           {game.players.map((p) => (
             <div key={p.id} className="glass rounded-2xl p-3.5 flex items-center gap-3">
@@ -226,10 +241,12 @@ export function Lobby({
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {isHost ? (
         <>
+          {jass && <JassSettings config={jass.config} onChange={onJassConfig} />}
           <PausePicker value={game.trickPauseMs} onChange={onSetPause} />
 
           {game.kind === 'chratzen' && (
@@ -257,22 +274,35 @@ export function Lobby({
           >
             <Bot className="w-4 h-4" /> Bot dazusetzen
           </Button>
-          {game.players.length < 2 && (
+          {jass && missing > 0 ? (
             <p className="text-xs text-white/35 mt-2 leading-relaxed text-center">
-              {fyn
-                ? 'Allein am Tisch? Setz einen Bot dazu.'
-                : 'Allein am Tisch? Setz einen Bot dazu — er kratzt und geht mit, damit gespielt wird.'}
+              Jass geht zu viert. Wer fehlt, wird beim Start durch einen Bot ersetzt — ihr könnt
+              aber auch auf Freunde warten.
             </p>
+          ) : (
+            game.players.length < 2 && (
+              <p className="text-xs text-white/35 mt-2 leading-relaxed text-center">
+                {fyn
+                  ? 'Allein am Tisch? Setz einen Bot dazu.'
+                  : 'Allein am Tisch? Setz einen Bot dazu — er kratzt und geht mit, damit gespielt wird.'}
+              </p>
+            )
           )}
 
           <Button
             variant="primary"
             size="lg"
             className="w-full mt-6"
-            disabled={game.players.length < 2}
+            disabled={!jass && game.players.length < 2}
             onClick={onStart}
           >
-            {game.players.length < 2 ? 'Mindestens zu zweit' : 'Partie starten'}
+            {jass
+              ? missing > 0
+                ? `Mit ${missing} ${missing === 1 ? 'Bot' : 'Bots'} starten`
+                : 'Partie starten'
+              : game.players.length < 2
+                ? 'Mindestens zu zweit'
+                : 'Partie starten'}
           </Button>
         </>
       ) : (
@@ -282,7 +312,8 @@ export function Lobby({
       )}
 
       {help && fyn && <FynRules onClose={() => setHelp(false)} />}
-      {help && !fyn && (
+      {help && jass && <JassRules variant={jass.config.variant} onClose={() => setHelp(false)} />}
+      {help && game.kind === 'chratzen' && (
         <HelpSheet
           initial={PHASE_HELP.lobby.section}
           hint={PHASE_HELP.lobby.hint}

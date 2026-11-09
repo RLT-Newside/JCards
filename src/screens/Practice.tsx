@@ -1,12 +1,20 @@
-import { GraduationCap, X } from 'lucide-react'
+import { ArrowLeft, GraduationCap, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
 import { type Lesson, nextLesson } from '../content/coach'
 import { nextFynLesson } from '../content/fynCoach'
 import { usePractice } from '../hooks/usePractice'
+import { JASS_VARIANTS, type JassVariant, VARIANT_LABEL } from '../lib/jass'
 import type { GameKind } from '../lib/protocol'
 import { FynTable } from './digital/FynTable'
+import { JassTable } from './digital/JassTable'
 import { Table } from './digital/Table'
+
+const JASS_BLURB: Record<JassVariant, string> = {
+  schieber: 'Zwei gegen zwei bis 1000. Trumpf ansagen oder schieben — Weis, Stöck und Match zählen.',
+  differenzler: 'Jeder für sich. Punkte verdeckt ansagen und möglichst genau treffen.',
+  coiffeur: 'Zwei gegen zwei. Jede Spielart einmal, mit Faktor ×1 bis ×6.',
+}
 
 /**
  * Übungsrunde mit Coach: ein echter Tisch gegen Bots, aber jemand sagt dir,
@@ -17,7 +25,51 @@ import { Table } from './digital/Table'
  * Namensraum dieser einen Übung.
  */
 export function Practice({ kind = 'chratzen', onExit }: { kind?: GameKind; onExit: () => void }) {
-  const p = usePractice('Du', kind)
+  // Jass hat drei Spiele — gewählt wird, bevor der Tisch steht.
+  const [variant, setVariant] = useState<JassVariant | null>(null)
+  if (kind === 'jass' && !variant) return <JassPicker onPick={setVariant} onExit={onExit} />
+  return <PracticeTable kind={kind} variant={variant ?? undefined} onExit={onExit} />
+}
+
+function JassPicker({ onPick, onExit }: { onPick: (v: JassVariant) => void; onExit: () => void }) {
+  return (
+    <div className="px-5 pt-6 pb-10 animate-fade-in">
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" onClick={onExit} aria-label="Zurück">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <h1 className="font-heading text-4xl tracking-wide leading-none">JASS ÜBEN</h1>
+      </div>
+      <p className="text-sm text-white/50 leading-relaxed mb-5">
+        Du und drei Bots, ganz ohne Netz. Im Teamspiel sitzt dir ein Bot als Partner gegenüber.
+      </p>
+      <div className="space-y-3">
+        {JASS_VARIANTS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onPick(v)}
+            className="press-scale glass rounded-2xl w-full p-4 text-left"
+          >
+            <p className="font-heading text-2xl tracking-wide leading-none">{VARIANT_LABEL[v].toUpperCase()}</p>
+            <p className="text-xs text-white/45 mt-1.5 leading-snug">{JASS_BLURB[v]}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PracticeTable({
+  kind,
+  variant,
+  onExit,
+}: {
+  kind: GameKind
+  variant?: JassVariant
+  onExit: () => void
+}) {
+  const p = usePractice('Du', kind, variant)
   const [seen, setSeen] = useState<Set<string>>(() => new Set())
   const [lesson, setLesson] = useState<Lesson<string> | null>(null)
   const [open, setOpen] = useState(true)
@@ -26,7 +78,13 @@ export function Practice({ kind = 'chratzen', onExit }: { kind?: GameKind; onExi
   // die Einwürfe, sobald mehrere Bedingungen gleichzeitig zutreffen.
   useEffect(() => {
     if (!p.game || lesson) return
-    const next = p.game.kind === 'fyn' ? nextFynLesson(p.game, seen) : nextLesson(p.game, seen)
+    // Jass hat (noch) keinen Coach — die Regeln stehen hinter dem Hilfe-Knopf.
+    const next =
+      p.game.kind === 'fyn'
+        ? nextFynLesson(p.game, seen)
+        : p.game.kind === 'chratzen'
+          ? nextLesson(p.game, seen)
+          : null
     if (next) {
       setLesson(next)
       setOpen(true)
@@ -49,7 +107,19 @@ export function Practice({ kind = 'chratzen', onExit }: { kind?: GameKind; onExi
 
   return (
     <>
-      {p.game.kind === 'fyn' ? (
+      {p.game.kind === 'jass' ? (
+        <JassTable
+          game={p.game}
+          onTrumpf={p.trumpf}
+          onPredict={p.bid}
+          onPlay={p.play}
+          onNext={p.next}
+          onKick={p.kick}
+          onForce={p.force}
+          onSetPause={p.setPause}
+          onLeave={onExit}
+        />
+      ) : p.game.kind === 'fyn' ? (
         <FynTable
           game={p.game}
           onBid={p.bid}

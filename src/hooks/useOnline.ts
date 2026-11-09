@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FynClientGame } from '../lib/fyn'
 import type { ClientGame } from '../lib/game'
+import type { JassClientGame, JassConfig, TrumpfChoice } from '../lib/jass'
 import type { ClientMsg, GameKind } from '../lib/protocol'
 import {
   type BluetoothInfo,
@@ -63,7 +64,7 @@ export function useOnline() {
 
   const [mode, setMode] = useState<Mode>(initialMode)
   const [connected, setConnected] = useState(false)
-  const [game, setGame] = useState<ClientGame | FynClientGame | null>(null)
+  const [game, setGame] = useState<ClientGame | FynClientGame | JassClientGame | null>(null)
   const [code, setCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hostInfo, setHostInfo] = useState<HostInfo | null>(null)
@@ -208,6 +209,10 @@ export function useOnline() {
     sleeper: (card: string) => send({ t: 'sleeper', card }),
     play: (card: string) => send({ t: 'play', card }),
     bid: (bid: number) => send({ t: 'bid', bid }),
+    trumpf: (mode: TrumpfChoice) => send({ t: 'trumpf', mode }),
+    jassConfig: (config: Partial<JassConfig>) => send({ t: 'jassConfig', config }),
+    teams: () => send({ t: 'teams' }),
+    lobby: () => send({ t: 'lobby' }),
     next: () => send({ t: 'next' }),
     kick: (playerId: string) => send({ t: 'kick', playerId }),
     addBot: () => send({ t: 'addBot' }),

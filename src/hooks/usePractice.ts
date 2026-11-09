@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FynClientGame } from '../lib/fyn'
 import type { ClientGame } from '../lib/game'
+import { JASS_PLAYERS, type JassClientGame, type JassVariant, type TrumpfChoice } from '../lib/jass'
 import type { ClientMsg, GameKind, ServerMsg } from '../lib/protocol'
 import type { Call } from '../lib/rules'
 import { type Transport, createLocalTransport } from '../lib/transport'
 
 /** Übungsrunde: Grundeinsatz 1.00 — echtes Geld ist hier ohnehin keines im Spiel. */
 const PRACTICE_ANTE = 100
-/** Zwei Bots, damit es einen Kratzer und einen Mitgeher geben kann. */
+/** Zwei Bots, damit es einen Kratzer und einen Mitgeher geben kann. Jass braucht drei. */
 const BOTS = 2
 /** Grosszügige Stichpause: Anfänger sollen sehen, welche Karte gestochen hat. */
 const PRACTICE_PAUSE_MS = 1800
@@ -17,9 +18,9 @@ const PRACTICE_PAUSE_MS = 1800
  * Es ist dieselbe Engine wie am echten Tisch — die Übungsrunde kann also nichts
  * erlauben, was später verboten wäre.
  */
-export function usePractice(name: string, kind: GameKind = 'chratzen') {
+export function usePractice(name: string, kind: GameKind = 'chratzen', variant?: JassVariant) {
   const transportRef = useRef<Transport | null>(null)
-  const [game, setGame] = useState<ClientGame | FynClientGame | null>(null)
+  const [game, setGame] = useState<ClientGame | FynClientGame | JassClientGame | null>(null)
   const [error, setError] = useState<string | null>(null)
   /** Hochzählen startet den Tisch neu — der alte Transport wird abgeräumt. */
   const [attempt, setAttempt] = useState(0)
@@ -29,7 +30,9 @@ export function usePractice(name: string, kind: GameKind = 'chratzen') {
     const transport = createLocalTransport({
       onOpen: () => {
         transport.send({ t: 'create', name, ante: PRACTICE_ANTE, game: kind })
-        for (let i = 0; i < BOTS; i++) transport.send({ t: 'addBot' })
+        if (kind === 'jass' && variant) transport.send({ t: 'jassConfig', config: { variant } })
+        const bots = kind === 'jass' ? JASS_PLAYERS - 1 : BOTS
+        for (let i = 0; i < bots; i++) transport.send({ t: 'addBot' })
         transport.send({ t: 'setPause', ms: PRACTICE_PAUSE_MS })
         transport.send({ t: 'start' })
       },
@@ -46,7 +49,7 @@ export function usePractice(name: string, kind: GameKind = 'chratzen') {
       transportRef.current = null
       transport.close()
     }
-  }, [name, kind, attempt])
+  }, [name, kind, variant, attempt])
 
   useEffect(() => {
     if (!error) return
@@ -65,6 +68,7 @@ export function usePractice(name: string, kind: GameKind = 'chratzen') {
     sleeper: (card: string) => send({ t: 'sleeper', card }),
     play: (card: string) => send({ t: 'play', card }),
     bid: (bid: number) => send({ t: 'bid', bid }),
+    trumpf: (mode: TrumpfChoice) => send({ t: 'trumpf', mode }),
     blind: (take: boolean) => send({ t: 'blind', take }),
     next: () => send({ t: 'next' }),
     kick: (playerId: string) => send({ t: 'kick', playerId }),

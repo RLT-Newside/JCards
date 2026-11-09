@@ -2,6 +2,7 @@ import { ArrowLeft, HelpCircle, Wifi } from 'lucide-react'
 import { useState } from 'react'
 import { FynRules } from '../../components/FynRules'
 import { HelpSheet } from '../../components/HelpSheet'
+import { JassRules } from '../../components/JassRules'
 import { Button, SectionTitle, Segmented } from '../../components/ui'
 import { ANTE_OPTIONS, formatChf } from '../../lib/money'
 import type { GameKind } from '../../lib/protocol'
@@ -56,7 +57,7 @@ export function Join({
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading text-4xl tracking-wide leading-none">
-          {kind === 'fyn' ? 'FYN' : 'DIGITAL'}
+          {kind === 'fyn' ? 'FYN' : kind === 'jass' ? 'JASS' : 'DIGITAL'}
         </h1>
         <Button
           variant="ghost"
@@ -135,7 +136,13 @@ export function Join({
 
       <div className="mt-8">
         <SectionTitle>Neuen Tisch eröffnen</SectionTitle>
-        {/* FYN zählt Punkte, kein Geld. */}
+        {kind === 'jass' && (
+          <p className="text-xs text-white/35 -mt-1 mb-3 leading-relaxed">
+            Schieber, Differenzler oder Coiffeur wählst du in der Lobby. Zu viert — wer
+            fehlt, wird durch einen Bot ersetzt.
+          </p>
+        )}
+        {/* FYN und Jass zählen Punkte, kein Geld. */}
         {kind === 'chratzen' && (
           <Segmented
             value={ante}
@@ -223,6 +230,7 @@ export function Join({
       </div>
 
       {help && kind === 'fyn' && <FynRules onClose={() => setHelp(false)} />}
+      {help && kind === 'jass' && <JassRules onClose={() => setHelp(false)} />}
       {help && kind === 'chratzen' && (
         <HelpSheet
           initial="ziel"
