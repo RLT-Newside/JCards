@@ -3,6 +3,8 @@ import type { Mode } from '../screens/MainMenu'
 
 const PATH_TO_MODE: Record<string, Mode> = {
   '/': 'menu',
+  '/jass': 'jass',
+  '/jass-uebung': 'jassPractice',
   '/companion': 'companion',
   '/digital': 'digital',
   '/fyn': 'fyn',
@@ -15,6 +17,8 @@ const PATH_TO_MODE: Record<string, Mode> = {
 
 const MODE_TO_PATH: Record<Mode, string> = {
   menu: '/',
+  jass: '/jass',
+  jassPractice: '/jass-uebung',
   companion: '/companion',
   digital: '/digital',
   fyn: '/fyn',

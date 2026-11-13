@@ -16,6 +16,8 @@ export default function App() {
   return (
     <div className="min-h-screen text-[#e8e4dc] font-sans max-w-lg mx-auto safe-top">
       {mode === 'menu' && <MainMenu onSelect={navigate} />}
+      {mode === 'jass' && <DigitalMode kind="jass" onExit={back} onLearn={() => navigate('jassPractice')} />}
+      {mode === 'jassPractice' && <Practice kind="jass" onExit={back} />}
       {mode === 'companion' && <CompanionMode onExit={back} onLearn={() => navigate('tutorial')} />}
       {mode === 'digital' && (
         <DigitalMode kind="chratzen" onExit={back} onLearn={() => navigate('tutorial')} />

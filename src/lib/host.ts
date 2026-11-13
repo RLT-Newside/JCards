@@ -44,6 +44,26 @@ import {
   redactFyn,
   startFynRound,
 } from './fyn'
+import {
+  type JassGame,
+  JASS_PLAYERS,
+  applyPrediction,
+  backToLobby,
+  botJassMove,
+  chooseTrumpf,
+  createJass,
+  fallbackJassMove,
+  finishJassTrick,
+  forceJass,
+  jassActor,
+  kickJass,
+  nextJassRound,
+  playJassCard,
+  redactJass,
+  rotateTeams,
+  setJassConfig,
+  startJass,
+} from './jass'
 import type { ClientMsg, GameKind, Outgoing } from './protocol'
 
 export const MAX_PLAYERS = 8
@@ -55,13 +75,17 @@ export const ROOM_TTL_MS = 30 * 60 * 1000
 // Ohne 0/O/1/I — am Stammtisch wird der Code vorgelesen.
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
-type AnyGame = Game | FynGame
+type AnyGame = Game | FynGame | JassGame
 
 // Die wenigen Stellen, an denen der Tischwirt wissen muss, welches Spiel läuft.
-const actorOf = (g: AnyGame) => (g.kind === 'fyn' ? fynActor(g) : currentActor(g))
-const finish = (g: AnyGame) => (g.kind === 'fyn' ? finishFynTrick(g) : finishTrick(g))
-const view = (g: AnyGame, id: string) => (g.kind === 'fyn' ? redactFyn(g, id) : redact(g, id))
-const maxPlayers = (g: AnyGame) => (g.kind === 'fyn' ? FYN_MAX_PLAYERS : MAX_PLAYERS)
+const actorOf = (g: AnyGame) =>
+  g.kind === 'fyn' ? fynActor(g) : g.kind === 'jass' ? jassActor(g) : currentActor(g)
+const finish = (g: AnyGame) =>
+  g.kind === 'fyn' ? finishFynTrick(g) : g.kind === 'jass' ? finishJassTrick(g) : finishTrick(g)
+const view = (g: AnyGame, id: string) =>
+  g.kind === 'fyn' ? redactFyn(g, id) : g.kind === 'jass' ? redactJass(g, id) : redact(g, id)
+const maxPlayers = (g: AnyGame) =>
+  g.kind === 'fyn' ? FYN_MAX_PLAYERS : g.kind === 'jass' ? JASS_PLAYERS : MAX_PLAYERS
 const WRONG_GAME = 'Gibt es in diesem Spiel nicht.'
 
 type Room = {
@@ -223,7 +247,12 @@ export class TableHost {
 
     const playerId = this.randomId()
     const token = this.randomId() + this.randomId()
-    const game = kind === 'fyn' ? createFyn(playerId) : createGame(playerId, Number(ante) || 100)
+    const game =
+      kind === 'fyn'
+        ? createFyn(playerId)
+        : kind === 'jass'
+          ? createJass(playerId)
+          : createGame(playerId, Number(ante) || 100)
     game.players.push({ id: playerId, name: cleanName(name), balance: 0, connected: true })
 
     const room: Room = {
@@ -277,9 +306,10 @@ export class TableHost {
     if (!room) return [{ to: connId, msg: { t: 'error', message: 'Tisch existiert nicht mehr.' } }]
 
     const g = room.game
-    // Genau eines von beiden ist gesetzt.
-    const c = g.kind === 'fyn' ? null : g
+    // Genau eines davon ist gesetzt.
+    const c = g.kind === 'chratzen' ? g : null
     const f = g.kind === 'fyn' ? g : null
+    const j = g.kind === 'jass' ? g : null
     const me = link.playerId
     let err: string | null = null
     const extra: Outgoing[] = []
@@ -288,10 +318,14 @@ export class TableHost {
       case 'start':
         if (g.hostId !== me) err = 'Nur der Host startet die Partie.'
         else if (g.phase !== 'lobby') err = 'Partie läuft bereits.'
-        else if (g.players.length < 2) err = 'Mindestens 2 Spieler.'
+        // Jass braucht genau vier — wer fehlt, wird beim Start durch Bots ersetzt.
+        else if (g.players.length < 2 && !j) err = 'Mindestens 2 Spieler.'
         else if (g.players.length > maxPlayers(g)) err = `Höchstens ${maxPlayers(g)} Spieler.`
         else if (f) startFynRound(f)
-        else if (c) startRound(c)
+        else if (j) {
+          while (j.players.length < JASS_PLAYERS) j.players.push(this.newBot(j))
+          err = startJass(j)
+        } else if (c) startRound(c)
         break
       case 'blind':
         err = c ? (msg.take ? declareBlind(c, me) : declineBlind(c, me)) : WRONG_GAME
@@ -306,16 +340,32 @@ export class TableHost {
         err = c ? applySleeperDiscard(c, me, msg.card) : WRONG_GAME
         break
       case 'bid':
-        err = f ? applyBid(f, me, Number(msg.bid)) : WRONG_GAME
+        err = f ? applyBid(f, me, Number(msg.bid)) : j ? applyPrediction(j, me, Number(msg.bid)) : WRONG_GAME
+        break
+      case 'trumpf':
+        err = j ? chooseTrumpf(j, me, msg.mode) : WRONG_GAME
+        break
+      case 'jassConfig':
+        err = j ? setJassConfig(j, me, msg.config) : WRONG_GAME
+        break
+      case 'teams':
+        err = j ? rotateTeams(j, me) : WRONG_GAME
+        break
+      case 'lobby':
+        err = j ? backToLobby(j, me) : WRONG_GAME
         break
       case 'play':
-        err = f ? playFynCard(f, me, msg.card) : playCard(c as Game, me, msg.card)
+        err = f
+          ? playFynCard(f, me, msg.card)
+          : j
+            ? playJassCard(j, me, msg.card)
+            : playCard(c as Game, me, msg.card)
         break
       case 'next':
-        err = f ? nextFynRound(f) : nextRound(c as Game)
+        err = f ? nextFynRound(f) : j ? nextJassRound(j, me) : nextRound(c as Game)
         break
       case 'force':
-        err = f ? forceFyn(f, me) : forceMove(c as Game, me)
+        err = f ? forceFyn(f, me) : j ? forceJass(j, me) : forceMove(c as Game, me)
         break
       case 'setPause':
         err = setTrickPause(g, me, msg.ms)
@@ -327,20 +377,17 @@ export class TableHost {
         if (g.hostId !== me) err = 'Nur der Host kann Bots setzen.'
         else if (g.phase !== 'lobby') err = 'Bots nur in der Lobby.'
         else if (g.players.length >= maxPlayers(g)) err = 'Tisch ist voll.'
-        else {
-          g.players.push({
-            id: this.randomId(),
-            name: botName(g.players.map((p) => p.name)),
-            balance: 0,
-            connected: true,
-            bot: true,
-          })
-        }
+        else g.players.push(this.newBot(g))
         break
       case 'kick': {
-        err = f ? kickFyn(f, me, msg.playerId) : kickPlayer(c as Game, me, msg.playerId)
-        // Sofort entfernt (Lobby)? Dann Sitzung entwerten und Verbindung lösen.
-        if (!err && !g.players.some((p) => p.id === msg.playerId)) {
+        err = f
+          ? kickFyn(f, me, msg.playerId)
+          : j
+            ? kickJass(j, me, msg.playerId)
+            : kickPlayer(c as Game, me, msg.playerId)
+        // Sofort entfernt (Lobby) oder durch einen Bot ersetzt (Jass)? Dann
+        // Sitzung entwerten und Verbindung lösen.
+        if (!err && !g.players.some((p) => p.id === msg.playerId && !p.bot)) {
           const victim = room.conns.get(msg.playerId)
           if (victim) {
             extra.push({ to: victim, msg: { t: 'error', message: 'Du wurdest vom Host entfernt.' } })
@@ -358,6 +405,17 @@ export class TableHost {
     return [...out, ...extra, ...this.broadcast(room)]
   }
 
+  /** Ein Bot mit freiem Namen — er hat keine Verbindung und trödelt nie. */
+  private newBot(g: AnyGame) {
+    return {
+      id: this.randomId(),
+      name: botName(g.players.map((p) => p.name)),
+      balance: 0,
+      connected: true,
+      bot: true,
+    }
+  }
+
   /**
    * Ein Zug pro Tick, wenn ein Bot dran ist. Bewusst nicht alle auf einmal:
    * so ziehen die Bots im Takt des Ticks und man kann zuschauen.
@@ -365,6 +423,7 @@ export class TableHost {
   private stepBot(room: Room): Outgoing[] {
     const g = room.game
     if (g.kind === 'fyn') return this.stepFynBot(room, g)
+    if (g.kind === 'jass') return this.stepJassBot(room, g)
     const actor = currentActor(g)
     const trump = g.trump?.suit
     if (!actor?.bot || !trump) return []
@@ -405,6 +464,14 @@ export class TableHost {
     if (!actor?.bot) return []
     if (g.phase === 'bids') applyBid(g, actor.id, botBid(g, actor.id))
     else playFynCard(g, actor.id, botFynPlay(g, actor.id))
+    return this.broadcast(room)
+  }
+
+  private stepJassBot(room: Room, g: JassGame): Outgoing[] {
+    const actor = jassActor(g)
+    if (!actor?.bot) return []
+    // Wie bei Chratzen: lehnt die Engine den Zug ab, kommt die sichere Variante.
+    if (botJassMove(g, actor.id)) fallbackJassMove(g, actor.id)
     return this.broadcast(room)
   }
 

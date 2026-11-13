@@ -1,14 +1,53 @@
 # JCards
 
 Webapp für Schweizer Kartenspiele mit 36 Jasskarten — mobile-first, dunkel, offline-fähig.
-Zwei Spiele: **Chratzen** und **Fuck Your Neighbour** (FYN).
+Drei Spiele: **Jass** (Schieber, Differenzler, Coiffeur), **Chratzen** und **Fuck Your Neighbour** (FYN).
 
 | Spiel · Modus | Status | Was er macht |
 |---|---|---|
+| Jass · **Digital** (Multiplayer) | ✅ | Schieber, Differenzler oder Coiffeur zu viert. Trumpf ansagen und schieben, Farbzwang, Weis, Stöck und Match zählt die App. Gleicher Tisch, gleiche Wege (Code, WLAN, Bluetooth); fehlende Plätze füllen Bots. Übungstisch gegen drei Bots. |
 | Chratzen · **Companion** (Kasse) | ✅ | Ihr spielt mit echten Karten und sagt am Tisch an. Die App führt **nur die Kasse**: Grundeinsatz, Pott, Ausschüttung, Bete. **Braucht keinen Server.** |
 | Chratzen · **Digital** (Multiplayer) | ✅ | Raumcode oder Bluetooth, virtueller Tisch, Austeilen/Tauschen/Stechen automatisch, Wiedereinstieg per Token. |
 | FYN · **Block** | ✅ | Ihr spielt mit echten Karten. Die App prüft Ansagen (Geber-Summe, nie zweimal 0), nimmt Stiche auf und zählt Punkte über 11 Runden. **Braucht keinen Server.** |
 | FYN · **Digital** (Multiplayer) | ✅ | Stichansage über 11 Runden (6→1→6 Karten), ohne Trumpf, Stechen/Erben, Stirnrunde, Punkte. Gleicher Tisch, gleiche Wege (Code, WLAN, Bluetooth), Bots. |
+
+## Jass
+
+Zu viert, die Partner sitzen sich gegenüber (Plätze 1 + 3 gegen 2 + 4, in der Lobby
+per *Partner wechseln* umzustellen). Wer beim Start fehlt, wird durch einen Bot ersetzt;
+wer mitten in der Partie rausgeworfen wird, ebenfalls — sein Platz und seine Karten
+bleiben, seine Sitzung ist weg.
+
+| Variante | Ablauf | Gezählt |
+|---|---|---|
+| **Schieber** | Vorhand sagt Trumpf, Obenabe oder Undenufe an — oder schiebt, dann wählt der Partner. Ausspielen tut immer die Vorhand. | Beide Teams. Ziel 1000/1500/2500; wer es zuerst erreicht, bedankt sich, auch mitten in der Runde — Weis vor Stöck vor Stich. Optional gewichtet: Eichel/Rosen ×1, Schellen/Schilten ×2, Obenabe/Undenufe ×3. |
+| **Differenzler** | Jeder für sich. Die letzte Karte des Gebers wird aufgedeckt, ihre Farbe ist Trumpf; die Karte bleibt beim Geber. Jeder sagt verdeckt an, wie viele Punkte er macht. | Abweichung als Strafpunkte, nach 4/8/12 Runden gewinnt die kleinste Summe. Kein Weis, Stöck zählen zu den eigenen Punkten. |
+| **Coiffeur** | Wie Schieber, aber jedes Team spielt jede Spielart genau einmal: Schellen ×1, Schilten ×2, Rosen ×3, Eichel ×4, Obenabe ×5, Undenufe ×6. | Nur das ansagende Team trägt ein — Karten, Weis und Stöck mal Faktor. Nach zwölf Runden gewinnt die grössere Summe. |
+
+- **Karten**: Trumpf Under (Puur) 20, Neuner (Nell) 14, Ass 11, Banner 10, König 4, Ober 3;
+  sonst Ass 11, Banner 10, König 4, Ober 3, Under 2. Ohne Trumpf zählt der Achter 8,
+  bei Undenufe tauschen Ass und Sechser. Letzter Stich +5, zusammen 157; Match +100.
+- **Bedienen**: Farbe angeben oder trumpfen, trumpfen geht immer. Untertrumpfen ist
+  verboten, ausser man hat nur noch Trümpfe. Bei Trumpf muss man Trumpf geben — den
+  blutten Puur nicht.
+- **Weisen** automatisch mit der ersten Karte: Dreiblatt 20, Vierblatt 50, Fünfblatt 100,
+  jede weitere Karte +50; Vier Under 200, Vier Neuner 150, Asse/Könige/Ober/Banner 100.
+  Höher ist: mehr Punkte, dann mehr Karten, dann die höhere Folge (Undenufe: die tiefere),
+  dann Trumpf, dann wer früher dran ist. Nur das beste Team zählt — alle seine Weise,
+  gezeigt nach dem ersten Stich. Bis dahin sieht man von den anderen nur die Punkte.
+- **Stöck** (König + Ober im Trumpf) zählen 20, sobald die zweite Karte liegt.
+- **Redaction**: fremde Hände und Differenzler-Ansagen verlassen den Tischwirt erst, wenn
+  sie öffentlich sind — die Ansagen also erst nach der Runde.
+
+**Bots.** Ausspielen nach Faustregeln (Trumpf ziehen, wer angesagt hat; sichere Stiche
+zuerst; schmieren, wenn der Partner sicher sticht; billig überstechen; Puur und Nell nur
+für fette Stiche). Für Trumpfwahl und Ansage spielen sie die Runde ein paar Dutzend Mal
+mit zufällig verteilten fremden Karten durch — sie kennen nur die eigene Hand. Geschoben
+wird, wenn keine Spielart im Schnitt über 104 Teampunkte bringt; durchgespielt ist das
+etwa der Punkt, ab dem die Wahl des Partners im Schnitt mehr bringt. Im Differenzler sagen
+sie den Median der Durchläufe an (im Schnitt rund 11 Punkte daneben). Rechenzeit am Laptop
+gemessen: rund 13 ms pro Trumpfwahl, 5 ms pro Ansage — weit unter dem Bot-Takt von 800 ms.
+Den Zug eines trödelnden Spielers übernimmt der Host mit derselben Logik.
 
 ## Wer führt den Tisch?
 
@@ -34,7 +73,7 @@ npm install
 npm start        # Web (:5173) + Server (:3001) parallel
 npm run dev      # nur Frontend — /ws wird auf :3001 geproxyt
 npm run server   # nur Backend
-npm test         # 132 Unit-Tests (Regeln, Engines, Bots, Tischwirt, Transport)
+npm test         # 171 Unit-Tests (Regeln, Engines, Bots, Tischwirt, Transport)
 npm run smoke    # E2E über echte WebSockets (Server muss laufen)
 npm run build    # tsc -b + vite build
 npx cap sync android && cd android && ./gradlew assembleRelease   # APK
@@ -49,6 +88,7 @@ alles auf `http://localhost:3001`.
 src/
   lib/money.ts        Rappen-Arithmetik, Largest-Remainder-Split
   lib/rules.ts        Chratzen-Regelwerk, rein funktional (gilt für beide Modi)
+  lib/jass.ts         Jass-Engine (Schieber/Differenzler/Coiffeur) + Bots + Redaction
   lib/fyn.ts          Fuck-Your-Neighbour-Engine + Bot + Redaction
   lib/cards.ts        36er-Deck, Stichvergleich, Farbzwang
   lib/game.ts         Autoritative Engine + Redaction pro Spieler
@@ -84,6 +124,11 @@ Draht sprechen kann. Per Bluetooth dieselben Nachrichten, eine pro Zeile.
 | `{t:'exchange', cards}` | 0–4 Karten tauschen |
 | `{t:'sleeper', card}` | Schlafkarte abwerfen |
 | `{t:'play', card}` | Karte ausspielen |
+| `{t:'bid', bid}` | FYN: Stiche ansagen · Differenzler: Punkte ansagen |
+| `{t:'trumpf', mode}` | Jass: Trumpffarbe, `obenabe`, `undenufe` oder `schieben` |
+| `{t:'jassConfig', config}` | Jass: Variante, Ziel, Zählweise, Runden (nur Host, Lobby) |
+| `{t:'teams'}` | Jass: anderer Partner für den ersten Platz (nur Host, Lobby) |
+| `{t:'lobby'}` | Jass: nach der Partie zurück in die Lobby (nur Host) |
 | `{t:'next'}` | nächste Runde (nur Host) |
 | `{t:'kick', playerId}` | rauswerfen (nur Host) |
 | `{t:'force'}` | hängenden Zug übernehmen (nur Host) |

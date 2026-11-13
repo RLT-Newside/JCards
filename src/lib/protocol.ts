@@ -8,10 +8,11 @@
 import type { CardId } from './cards'
 import type { FynClientGame } from './fyn'
 import type { ClientGame } from './game'
+import type { JassClientGame, JassConfig, TrumpfChoice } from './jass'
 import type { Call } from './rules'
 
 /** Welches Spiel am Tisch läuft. Fehlt es, ist es Chratzen. */
-export type GameKind = 'chratzen' | 'fyn'
+export type GameKind = 'chratzen' | 'fyn' | 'jass'
 
 export type ClientMsg =
   | { t: 'create'; name: string; ante: number; game?: GameKind }
@@ -23,7 +24,16 @@ export type ClientMsg =
   | { t: 'exchange'; cards: CardId[] }
   | { t: 'sleeper'; card: CardId }
   | { t: 'play'; card: CardId }
+  /** FYN: Stiche ansagen. Differenzler: Punkte ansagen. */
   | { t: 'bid'; bid: number }
+  /** Jass: Trumpf wählen oder schieben. */
+  | { t: 'trumpf'; mode: TrumpfChoice }
+  /** Jass: Spielart und Einstellungen (nur Host, in der Lobby). */
+  | { t: 'jassConfig'; config: Partial<JassConfig> }
+  /** Jass: anderer Partner für den ersten Platz (nur Host, in der Lobby). */
+  | { t: 'teams' }
+  /** Jass: nach der Partie zurück in die Lobby (nur Host). */
+  | { t: 'lobby' }
   | { t: 'next' }
   | { t: 'kick'; playerId: string }
   | { t: 'force' }
@@ -33,7 +43,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; token: string }
-  | { t: 'state'; code: string; game: ClientGame | FynClientGame }
+  | { t: 'state'; code: string; game: ClientGame | FynClientGame | JassClientGame }
   | { t: 'error'; message: string }
   | { t: 'kicked' }
 

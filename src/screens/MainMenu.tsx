@@ -1,8 +1,10 @@
 import { ChevronRight, Coins, GraduationCap, LayoutGrid, NotebookPen, Swords, Wifi } from 'lucide-react'
-import { SUITS } from '../components/suits'
+import { Eichel, SUITS } from '../components/suits'
 
 export type Mode =
   | 'menu'
+  | 'jass'
+  | 'jassPractice'
   | 'companion'
   | 'digital'
   | 'fyn'
@@ -82,7 +84,31 @@ export function MainMenu({ onSelect }: { onSelect: (m: Mode) => void }) {
         <p className="label-caption mt-3">Schweizer Kartenspiele · 36 Jasskarten</p>
       </header>
 
-      <p className="label-caption mb-2 px-1">Chratzen</p>
+      {/* Der Klassiker zuerst — Jass kennt am Stammtisch jeder. */}
+      <p className="label-caption mb-2 px-1">Jass</p>
+      <ModeCard
+        title="JASS"
+        tag="Schieber · Differenzler · Coiffeur"
+        lines={[
+          'Zu viert — wer fehlt, wird durch einen Bot ersetzt.',
+          'Weis, Stöck und Match zählt die App.',
+          'Raumcode, WLAN oder Bluetooth.',
+        ]}
+        icon={<Eichel className="w-5 h-5" />}
+        accent="bg-sky-400"
+        onClick={() => onSelect('jass')}
+      />
+      <button
+        type="button"
+        onClick={() => onSelect('jassPractice')}
+        className="press-scale w-full mt-1 flex items-center justify-center gap-2 py-3 rounded-xl
+          text-sm text-white/50 hover:text-white/80 transition-colors"
+      >
+        <GraduationCap className="w-4 h-4" />
+        Üben gegen Bots
+      </button>
+
+      <p className="label-caption mt-8 mb-2 px-1">Chratzen</p>
 
       {/* Steht bewusst vor den Modi: wer die Regeln nicht kennt, kann mit
           keinem der beiden etwas anfangen. */}
